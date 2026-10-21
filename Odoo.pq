@@ -339,14 +339,16 @@ Odoo.CheckPermissions = (connection as record, models as list, optional uid as n
         _uid = if uid <> null then uid else connection[uid],
         _permission = if permission <> null then permission else "read",
         permission_field = "perm_" & _permission,
-        models_with_perm = Odoo.ReadGroup(
+        // Odoo 19 renamed res.groups.users to res.groups.user_ids: try the new name, fall back to the old one
+        _read = (users_field as text) => Odoo.ReadGroup(
             connection, 
             "ir.model.access", 
             { {permission_field, "=", true},
               {"model_id.model", "in", models},
-              "|", {"group_id.users", "=", _uid}, {"group_id", "=", false} },
+              "|", {"group_id." & users_field, "=", _uid}, {"group_id", "=", false} },
             {},
             {"model_id"}),
+        models_with_perm = try _read("user_ids") otherwise _read("users"),
         ids = List.Transform(models_with_perm[model_id], List.First),
         // TODO: cache 'ir.model' globally to avoid this call
         model_names = if List.Count(models) <> 0 // Shortcut
